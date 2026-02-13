@@ -73,7 +73,7 @@
 
 ### Витрины (специализированные датасеты)
 
-#### 1. `orders_enriched` — уровень заказа (финансы + геоаналитика)
+#### 1. `orders` — уровень заказа (финансы + геоаналитика)
 ```sql
 WITH enriched AS (
   SELECT
@@ -128,3 +128,104 @@ SELECT
   COUNT(*) AS ItemsCount
 FROM enriched
 GROUP BY OrderID, DeliveryDate, DeliveryDatetime
+
+```
+
+#### 2. `order_items` — уровень позиции (продукты)
+```sql
+SELECT
+    s.OrderID,
+    s.ProductName AS ProductID,
+    s.ProductName,
+    p.ProductBrand,
+    s.ProductSubcategory,
+    p.ProductCategory,
+    s.ProductCount,
+    toFloat64(s.ProductPrice) AS ProductPrice,
+    s.ClientStatus,
+    s.Gender,
+    s.DeliveryType,
+    s.DeliveryDistrictName,
+    sh.ShopDistrictName,
+    IF(s.DeliveryDistrictName = sh.ShopDistrictName, 'Локальная', 'Межрайонная') AS SameDistrict,
+    sqrt(
+      pow(
+        toFloat64OrNull(extract(s.DeliveryAddressCoord, '\\[([^,]+)')) - 
+        toFloat64OrNull(extract(sh.ShopAddressCoord, '\\[([^,]+)')),
+        2
+      ) +
+      pow(
+        toFloat64OrNull(extract(s.DeliveryAddressCoord, ',([^\\]]+)\\]')) - 
+        toFloat64OrNull(extract(sh.ShopAddressCoord, ',([^\\]]+)\\]')),
+        2
+      )
+    ) AS Distance,
+    CASE 
+      WHEN toFloat64(s.Sales) > 0 THEN 
+        toFloat64(s.ProductPrice) * (toFloat64(s.Discount) / toFloat64(s.Sales))
+      ELSE 0 
+    END AS ItemDiscount,
+    CASE 
+      WHEN toFloat64(s.Sales) > 0 THEN 
+        toFloat64(s.ProductPrice) - (toFloat64(s.ProductPrice) * (toFloat64(s.Discount) / toFloat64(s.Sales)))
+      ELSE toFloat64(s.ProductPrice) 
+    END AS ItemFinalSales,
+    toDate(s.DeliveryDatetime) AS DeliveryDate
+FROM
+    MS_SalesFullTable s
+LEFT JOIN
+    MS_Products p
+ON
+    s.ProductName = p.ProductName
+JOIN
+    MS_Shops sh ON s.ShopAddressCoord = sh.ShopAddressCoord
+WHERE
+    s.DeliveryDatetime >= '2016-01-09'
+```
+
+## 📊 Ключевые метрики и формулы
+
+### Финансовые метрики
+| Метрика | Формула | Единицы |
+|---------|---------|---------|
+| Выручка | `SUM(FinalSales)` | ₽ |
+| Глубина скидок | `SUM(Discount) / SUM(Sales)` | % |
+| Средний чек | `AVG(FinalSales)` | ₽ |
+| Заказов в день | `COUNTD(OrderID) / COUNTD(DeliveryDate)` | шт |
+
+### Гео-метрики
+| Метрика | Формула | Единицы |
+|---------|---------|---------|
+| Расстояние | `greatCircleDistance(...) / 1000` | км |
+| Тип доставки | `IF(DeliveryDistrictName = ShopDistrictName, 'Локальная', 'Межрайонная')` | — |
+| Корреляция | `CORR(Distance_km, Discount / Sales)` | — |
+
+### Продуктовые метрики
+| Метрика | Формула | Единицы |
+|---------|---------|---------|
+| Выручка по категории | `SUM(ItemFinalSales)` | ₽ |
+| Глубина скидок по бренду | `SUM(ItemDiscount) / SUM(ItemFinalSales + ItemDiscount)` | % |
+| Популярность | `SUM(ProductCount)` | шт |
+
+---
+
+## 🎨 Дизайн и кастомизация
+
+### Стилизация через Custom CSS
+```css
+/* Пример стиля для центрирования заголовков */
+.header-title,
+.dashboard-component-header-title {
+  text-align: center !important;
+  font-weight: 700 !important;
+  color: #0c4a6e !important;
+  text-transform: uppercase !important;
+}
+
+/* Стиль для индикаторов */
+.big-number__value {
+  font-size: 40px !important;
+  font-weight: 800 !important;
+  color: #0c4a6e !important;
+  text-align: center !important;
+}
