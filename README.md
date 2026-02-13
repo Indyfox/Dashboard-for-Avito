@@ -75,7 +75,7 @@
 
 #### 1. `orders` — уровень заказа (финансы + геоаналитика)
 ```sql
-WITH enriched AS (
+WITH enriched_orders AS (
   SELECT
     OrderID,
     DeliveryDatetime,
@@ -101,33 +101,40 @@ WITH enriched AS (
     toFloat64(Sales) AS Sales,
     toFloat64(Discount) AS Discount,
     toFloat64(FinalSales) AS FinalSales
-  FROM MS_SalesFullTable s
-  JOIN MS_Shops sh ON s.ShopAddressCoord = sh.ShopAddressCoord
-  WHERE s.DeliveryDatetime >= '2016-01-09'
+  FROM
+    MS_SalesFullTable s
+  JOIN
+    MS_Shops sh ON s.ShopAddressCoord = sh.ShopAddressCoord
+  WHERE
+    s.DeliveryDatetime >= '2016-01-09'
 )
 SELECT
-  OrderID,
-  DeliveryDate,
-  DeliveryDatetime,
-  any(ClientName) AS ClientName,
-  any(ClientStatus) AS ClientStatus,
-  any(Gender) AS Gender,
-  any(DeliveryType) AS DeliveryType,
-  any(PaymentType) AS PaymentType,
-  any(DeliveryDistrictName) AS DeliveryDistrictName,
-  any(ShopDistrictName) AS ShopDistrictName,
-  any(DeliveryLat) AS DeliveryLat,
-  any(DeliveryLon) AS DeliveryLon,
-  any(ShopLat) AS ShopLat,
-  any(ShopLon) AS ShopLon,
-  any(Distance_km) AS Distance_km,
-  any(SameDistrict) AS SameDistrict,
-  any(Sales) AS Sales,
-  any(Discount) AS Discount,
-  any(FinalSales) AS FinalSales,
-  COUNT(*) AS ItemsCount
-FROM enriched
-GROUP BY OrderID, DeliveryDate, DeliveryDatetime
+    OrderID,
+    DeliveryDate,
+    DeliveryDatetime,
+    any(ClientName) AS ClientName,
+    any(ClientStatus) AS ClientStatus,
+    any(Gender) AS Gender,
+    any(DeliveryType) AS DeliveryType,
+    any(PaymentType) AS PaymentType,
+    any(DeliveryDistrictName) AS DeliveryDistrictName,
+    any(ShopDistrictName) AS ShopDistrictName,
+    any(DeliveryLat) AS DeliveryLat,
+    any(DeliveryLon) AS DeliveryLon,
+    any(ShopLat) AS ShopLat,
+    any(ShopLon) AS ShopLon,
+    any(Distance_km) AS Distance_km,
+    any(SameDistrict) AS SameDistrict,
+    any(Sales) AS Sales,
+    any(Discount) AS Discount,
+    any(FinalSales) AS FinalSales,
+    COUNT(*) AS ItemsCount
+FROM
+    enriched_orders
+GROUP BY
+    OrderID,
+    DeliveryDate,
+    DeliveryDatetime
 
 ```
 
@@ -173,7 +180,7 @@ SELECT
     toDate(s.DeliveryDatetime) AS DeliveryDate
 FROM
     MS_SalesFullTable s
-LEFT JOIN
+JOIN
     MS_Products p
 ON
     s.ProductName = p.ProductName
@@ -198,7 +205,7 @@ WHERE
 |---------|---------|---------|
 | Расстояние | `greatCircleDistance(...) / 1000` | км |
 | Тип доставки | `IF(DeliveryDistrictName = ShopDistrictName, 'Локальная', 'Межрайонная')` | — |
-| Корреляция | `CORR(Distance_km, Discount / Sales)` | — |
+
 
 ### Продуктовые метрики
 | Метрика | Формула | Единицы |
